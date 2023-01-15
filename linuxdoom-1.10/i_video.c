@@ -24,7 +24,6 @@
 static const char
 rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/ipc.h>
@@ -347,6 +346,21 @@ void I_UpdateNoBlit (void)
     // what is this?
 }
 
+// scale an src image to dst image. dst image's dimensions must be at least as large as src's dimensions.
+
+void scaleUpImage(byte* src, int src_w, int src_h, char* dst, int dst_w, int dst_h) {
+	int scale_x, scale_y;
+
+	scale_x = dst_w / src_w ;
+	scale_y = dst_h / src_h ;
+
+	for(int y = 0; y < dst_h; y++) {
+		for(int x = 0; x < dst_w; x++) {
+			dst[x + y*dst_w] = src[(x / scale_x) + (y / scale_y) * src_w];
+		}
+	}
+}
+
 //
 // I_FinishUpdate
 //
@@ -357,11 +371,11 @@ void I_FinishUpdate (void)
     int		tics;
     int		i;
     // UNUSED static unsigned char *bigscreen=0;
-
     // draws little dots on the bottom of the screen
     if (devparm)
     {
 
+	//usleep(100 * 1000); // 100 milisec
 	i = I_GetTime();
 	tics = i - lasttic;
 	lasttic = i;
@@ -374,6 +388,7 @@ void I_FinishUpdate (void)
     
     }
 
+#if 0
     // scales the screen size before blitting it
     if (multiply == 2)
     {
@@ -480,6 +495,9 @@ void I_FinishUpdate (void)
 	void Expand4(unsigned *, double *);
   	Expand4 ((unsigned *)(screens[0]), (double *) (image->data));
     }
+#endif // 0
+	scaleUpImage(screens[0], SCREENWIDTH, SCREENHEIGHT, image->data, X_width,X_height);
+	//printf("XHeight = %d XWidth = %d\n", XDisplayHeight(X_display, X_screen), XDisplayWidth(X_display, X_screen));
 
     if (doShm)
     {
@@ -667,6 +685,7 @@ void grabsharedmemory(int size)
       id = shmget((key_t)key, size, IPC_CREAT|0777);
       if (id==-1)
       {
+	extern int errno;
 	fprintf(stderr, "errno=%d\n", errno);
 	I_Error("Could not get any shared memory");
       }
@@ -725,8 +744,8 @@ void I_InitGraphics(void)
     if (M_CheckParm("-4"))
 	multiply = 4;
 
-    X_width = SCREENWIDTH * multiply;
-    X_height = SCREENHEIGHT * multiply;
+    // X_width = SCREENWIDTH * multiply;
+    // X_height = SCREENHEIGHT * multiply;
 
     // check for command-line display name
     if ( (pnum=M_CheckParm("-disp")) ) // suggest parentheses around assignment
@@ -770,6 +789,8 @@ void I_InitGraphics(void)
     X_screen = DefaultScreen(X_display);
     if (!XMatchVisualInfo(X_display, X_screen, 8, PseudoColor, &X_visualinfo))
 	I_Error("xdoom currently only supports 256-color PseudoColor screens");
+
+	//printf("XHeight = %d XWidth = %d\n", XDisplayHeight(X_display, X_screen), XDisplayWidth(X_display, X_screen));
     X_visual = X_visualinfo.visual;
 
     // check for the MITSHM extension
@@ -804,6 +825,10 @@ void I_InitGraphics(void)
 
     attribs.colormap = X_cmap;
     attribs.border_pixel = 0;
+
+	X_height = XDisplayHeight(X_display, X_screen);
+	X_width = XDisplayWidth(X_display, X_screen);
+
 
     // create the main window
     X_mainWindow = XCreateWindow(	X_display,
@@ -908,9 +933,9 @@ void I_InitGraphics(void)
 
     }
 
-    if (multiply == 1)
-	screens[0] = (unsigned char *) (image->data);
-    else
+//    if (multiply == 1)
+//	screens[0] = (unsigned char *) (image->data);
+ //   else
 	screens[0] = (unsigned char *) malloc (SCREENWIDTH * SCREENHEIGHT);
 
 }
